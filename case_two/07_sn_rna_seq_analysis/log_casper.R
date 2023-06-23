@@ -1,4 +1,4 @@
-# purpose of this is to redo casper
+# casper cnv calling
 library('CaSpER')
 library('GenomicRanges')
 library('GenomeGraphs')
@@ -15,19 +15,14 @@ library('future')
 library('future.apply')
 library('circlize')
 library('ComplexHeatmap')
-source('/opt/CaSpER/R/plots.R')
-source('/opt/Rphylip/Rphylip.R')
-source('/opt/CaSpER/R/utility_functions.R')
 plan(multicore, workers=20)
 options(future.globals.maxSize = as.numeric('+Inf'))
 options(future.rng.onMisuse='ignore')
 # get expression matrix and cluster assignments
 # {{{
 # read in expression matrix to determine wanted dimensions
-expr = data.frame(fread('~/@patrick/SF10711/sn.rna.seq/sanity/log_transcription_quotients.txt'))
-expr1 =expr[,1]
-expr = expr[,-1]
-expr=data.table(expr1, apply(expr, 2, function(x) exp(x))*1E6)
+expr = fread('~/@patrick/SF10711/sn.rna.seq/190809_SF013_oldham_july_1/08_expression_matrix/expr.ensg.counts.csv')
+colnames(expr)[1:2] = c('Gene', 'ENSG')
 # }}}
 # harmonize gene names
 # {{{
@@ -43,14 +38,9 @@ gtfOut[,4]= alias2SymbolTable(gtfOut[,4], species = 'Hs')
 expr = data.frame(gtfOut[match(as.character(unlist(expr[,1])), gtfOut[,2]), 4], expr)
 colnames(expr)[1:2] = c('Gene', 'ENSG')
 
-exprC = fread('~/@patrick/SF10711/sn.rna.seq/190809_SF013_oldham_july_1/08_expression_matrix/expr.ensg.counts.csv')
-exprC = exprC[match(expr$ENSG, exprC$Gene),]
-exprC = data.frame(expr$Gene, exprC)
-colnames(exprC)[1:2] = c('Gene', 'ENSG')
-
-countThresh = future_apply(exprC[,-c(1,2)], 1, function(x) length(which(x<0.5)) / (ncol(exprC)-2))
+countThresh = future_apply(expr[,-c(1,2)], 1, function(x) length(which(x<0.5)) / (ncol(expr)-2))
 threshInd = which(countThresh<0.9)
-exprCD = exprC[threshInd,-c(1,2)]
+exprCD = expr[threshInd,-c(1,2)]
 exprD = expr[threshInd,-c(1,2)]
 exprSum = future_apply(exprCD, 1, sum)
 exprGene = expr$Gene[threshInd]
@@ -90,7 +80,7 @@ lohL = readBAFExtractOutput(path='~/@patrick/SF10711/cnv.analysis/sn.rna.seq/cas
 names(lohL) <- 'SF10711_p2'
 lohNameMapping = data.frame(loh.name = rep("SF10711_p2", ncol(expr)-2), sample.name = colnames(expr)[-c(1,2)])
 clusters = read.csv('~/@patrick/SF10711/cnv.analysis/sn.rna.seq/casper/clusters.csv')
-nonmalignant = c(8, 7, 4, 10)
+nonmalignant = c(9, 11, 8, 4, 12, 6)
 controlSampleIDs = clusters$X[clusters$x %in% nonmalignant]
 
 exprD = exprD[match(annoT$Gene, rownames(exprD)),]
@@ -172,8 +162,7 @@ fidGenes= fidGenes[c(1, 10, 7, 9)]
 # we can instead get the genes from the dataset
 clones = c('Astrocyte', 'Oligodendrocyte', 'Microglia', 'Neuron')
 bulkGenes = fread('~/@patrick/SF10711/integration_analysis/network_deconvolution/Bicor-None_signum0.438_minSize5_merge_ME_0.8_20246/kME_table_02-55-42.csv')
-# clones=c('honeydew1', 'saddlebrown', 'coral1', 'salmon')
-clones=c('honeydew1', 'tan', 'coral1', 'lavenderblush3')
+clones=c('purple', 'tan', 'yello', 'neuron')
 bulkGenes = lapply(clones, function(clone) bulkGenes$Gene[which(bulkGenes$'TopModPosFDR_0.12' == clone)])
 names(bulkGenes) = clones
 
@@ -235,14 +224,12 @@ fmGenes=lapply(fmGenes, alias2SymbolTable, species='Hs')
 expr = data.frame(gtfOut[match(as.character(unlist(expr[,1])), gtfOut[,2]), 4], expr)
 colnames(expr)[1:2] = c('Gene', 'ENSG')
 
-exprC = fread('~/@patrick/SF10711/sn.rna.seq/190809_SF013_oldham_july_1/08_expression_matrix/expr.ensg.counts.csv')
-exprC = exprC[match(expr$ENSG, exprC$Gene),]
-exprC = data.frame(expr$Gene, exprC)
-colnames(exprC)[1:2] = c('Gene', 'ENSG')
+expr = fread('~/@patrick/SF10711/sn.rna.seq/190809_SF013_oldham_july_1/08_expression_matrix/expr.ensg.counts.csv')
+colnames(expr)[1:2] = c('Gene', 'ENSG')
 
-countThresh = future_apply(exprC[,-c(1,2)], 1, function(x) length(which(x<0.5)) / (ncol(exprC)-2))
+countThresh = future_apply(expr[,-c(1,2)], 1, function(x) length(which(x<0.5)) / (ncol(expr)-2))
 threshInd = which(countThresh<0.9)
-exprCD = exprC[threshInd,-c(1,2)]
+exprCD = expr[threshInd,-c(1,2)]
 exprD = expr[threshInd,-c(1,2)]
 exprSum = future_apply(exprCD, 1, sum)
 exprGene = expr$Gene[threshInd]
@@ -252,7 +239,7 @@ exprGene = expr$Gene[threshInd]
 attr(distDf, 'Labels') =paste0('x', seq(1, length(attr(distDf, 'Labels'))))
 distHclust = hclust(distDf, method = 'ward.D')
 dendP = as.dendrogram(distHclust)
-clust = cutree(distHclust, k=10)
+clust = cutree(distHclust, k=12)
 names(clust) = colnames(expr)[-c(1,2)]
 # }}}
 # get single-nucleus-amplicon information
@@ -260,23 +247,11 @@ names(clust) = colnames(expr)[-c(1,2)]
 snAmp=read.csv('~/@patrick/SF10711/sn.amp.seq/old/21_02_25_malignancy.adjusted.stringent.csv')
 snAmp$id = gsub('(N[0-9]*)\\.(.*)', '\\2\\.\\1', snAmp$id)
 snAmp=snAmp[match(colnames(exprD), snAmp$id),]
-snAmp[(clust==10 & snAmp[,2]==1),2]='0'
-snAmp[(clust==8 & snAmp[,2]==1),2]='0'
-snAmp[(clust==4 & snAmp[,2]==1),2]='0'
-snAmp[(clust==7 & snAmp[,2]==1),2]='0'
-snAmp[(clust==3 & snAmp[,2]==0),2]='1'
-snAmp[(clust==5 & snAmp[,2]==0),2]='1'
-snAmp[(clust==1 & snAmp[,2]==0),2]='1'
-snAmp[(clust==6 & snAmp[,2]==0),2]='1'
-snAmp[(clust==9 & snAmp[,2]==0),2]='1'
-snAmp[(clust==2 & snAmp[,2]==0),2]='1'
 clust2 = cutree(distHclust, k=12)
-snAmp[(clust2==6 & snAmp[,2]!='UNK'),2]='0'
 snAmp$malignant = gsub('0', 'Nonmalignant', snAmp$malignant)
 snAmp$malignant = gsub('1', 'Malignant', snAmp$malignant)
 snAmp$malignant = gsub('UNK', 'No data', snAmp$malignant)
 # }}}
-
 
 # plots
 # {{{
@@ -289,34 +264,6 @@ resultsFil = list(results[[1]][which(results[[1]]$Pval<1E-13), ])
 ## visualize mutual exclusive and co-occurent events
 plotMUAndCooccurence (resultsFil)
 plotSCellCNVTree(finalChrMat, 'SF10711_p2', fileName = 'treeTry')
-
-# visualize raw data
-# fineCNV = casperRunObj[[9]]@control.normalized.noiseRemoved[[1]]
-# # aggregate by cytoband
-# fineCNVcyto = future_apply(fineCNV, 2, function(x) aggregate(x, by = list(annoT$band), FUN=mean)[,2])
-# cytoAgg = aggregate(x, by = list(annoT$band), FUN=mean)
-# rownames(fineCNVcyto) = cytoAgg[,1]
-# fineCNVcyto = cbind(fineCNVcyto)
-# fineCNVcyto = fineCNVcyto[match(unique(annoT$band), rownames(fineCNVcyto)), ]
-# fineCNVcyto=(fineCNVcyto-1)*100+2
-# fineCNVcyto[fineCNVcyto>1 & fineCNVcyto<2] = 2
-# fineCNVcyto[fineCNVcyto>2 & fineCNVcyto<3] = 2
-# pdf('try.pdf', width=15)
-# Heatmap(t(fineCNVcyto),
-#         show_column_names = FALSE,
-#         show_row_names = FALSE,
-#         col = colorRamp2(breaks = c(0, 2, 4),
-#                             colors = c('#2166ac', '#f7f7f7', '#b2182b')
-#                         ),
-#         top_annotation = ha, 
-#         left_annotation = rha, 
-#         column_split = chroms,
-#         row_split = 10,
-#         cluster_columns = FALSE,
-#         clustering_distance_rows = 'spearman',
-#         clustering_method_rows = 'ward.D')
-# dev.off()
-# }}}
 
 samps <- obj@large.scale.cnv.events
 chrs <- as.vector(sapply(1:22, function(x) c(paste(x, "p", sep = ""), paste(x, "q", sep = ""))))
@@ -372,13 +319,11 @@ rha = rowAnnotation(
     col = list('Amplicon-seq' = c('Nonmalignant' = '#2166ac', 'Malignant' = '#b2182b', 'No data' = '#999999'),
                 'snRNA-seq clusters' = clustCols)
 )
-pdf('try.pdf')
+pdf('asper_heatmap.pdf')
 Heatmap(plotW,
         col = plotCols,
         cluster_columns = FALSE,
         show_row_names = FALSE,
         cluster_rows = plotW2D,
         left_annotation = rha)
-#         clustering_distance_rows = 'binary',
-#         clustering_method_rows = 'ward.D')
 dev.off()

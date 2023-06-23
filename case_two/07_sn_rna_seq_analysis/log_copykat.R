@@ -15,12 +15,8 @@ options(future.globals.maxSize = as.numeric('+Inf'))
 options(future.rng.onMisuse='ignore')
 # get expression matrix and cluster assignments
 # {{{
-dist = as.numeric(unlist(fread('~/@patrick/SF10711/sn.rna.seq/sanity/cell_cell_distance_with_errorbar_s2n_gt_1.txt')))
 # read in expression matrix to determine wanted dimensions
-expr = data.frame(fread('~/@patrick/SF10711/sn.rna.seq/sanity/log_transcription_quotients.txt'))
-expr1 =expr[,1]
-expr = expr[,-1]
-expr=data.table(expr1, apply(expr, 2, function(x) exp(x))*1E6)
+expr = fread('~/@patrick/SF10711/sn.rna.seq/190809_SF013_oldham_july_1/08_expression_matrix/expr.ensg.counts.csv')
 # }}}
 # harmonize gene names
 # {{{
@@ -36,14 +32,9 @@ gtfOut[,4]= alias2SymbolTable(gtfOut[,4], species = 'Hs')
 expr = data.frame(gtfOut[match(as.character(unlist(expr[,1])), gtfOut[,2]), 4], expr)
 colnames(expr)[1:2] = c('Gene', 'ENSG')
 
-exprC = fread('~/@patrick/SF10711/sn.rna.seq/190809_SF013_oldham_july_1/08_expression_matrix/expr.ensg.counts.csv')
-exprC = exprC[match(expr$ENSG, exprC$Gene),]
-exprC = data.frame(expr$Gene, exprC)
-colnames(exprC)[1:2] = c('Gene', 'ENSG')
-
-countThresh = future_apply(exprC[,-c(1,2)], 1, function(x) length(which(x<0.5)) / (ncol(exprC)-2))
+countThresh = future_apply(expr[,-c(1,2)], 1, function(x) length(which(x<0.5)) / (ncol(expr)-2))
 threshInd = which(countThresh<0.9)
-exprCD = exprC[threshInd,-c(1,2)]
+exprCD = expr[threshInd,-c(1,2)]
 exprD = expr[threshInd,-c(1,2)]
 exprSum = future_apply(exprCD, 1, sum)
 exprGene = expr$Gene[threshInd]
@@ -76,7 +67,7 @@ colnames(cytoT)=c("V1", "V2", "V3", "V4")
 # get rna-seq clusters
 # {{{
 clusters = read.csv('~/@patrick/SF10711/cnv.analysis/sn.rna.seq/casper/clusters.csv')
-nonmalignant = c(8, 7, 4, 10)
+nonmalignant = c(9, 11, 8, 4, 12, 6)
 controlSampleIDs = clusters$X[clusters$x %in% nonmalignant]
 # }}}
 # run copykat
